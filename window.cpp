@@ -34,8 +34,7 @@ bool Window::initializeProgram() {
 
 bool Window::initializeObjects() {
   // Create a cuboid
-  cuboid = new Cuboid(glm::vec3(-1.f, -1.f, -1.f), glm::vec3(1.f, 1.f, 1.f));
-  // cuboid = new Cuboid(glm::vec3(-1, 0, -2), glm::vec3(1, 1, 1));
+  cuboid = new Cuboid(glm::vec3(-1.f, 1.f, -1.f), glm::vec3(1.f, 3.f, 1.f));
 
   return true;
 }
