@@ -19,7 +19,7 @@
 #define kVelocityDecay 0.999  // 0.9995;
 #define E 680.0f
 #define nu 0.487f  // [0.0, 0.5]
-#define kdt 1e-6
+#define kdt 1e-3
 
 // Constructor {{{
 Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
@@ -313,7 +313,7 @@ void Cuboid::ApplyForce() {
   for (size_t i = 0; i < positions.size(); ++i) {
     glm::vec3 acceleration = force[i] / glm::vec3(mass[i]);
     velocities[i] += acceleration * glm::vec3(kdt);
-    positions[i] += velocities[i];
+    positions[i] += velocities[i] * glm::vec3(kdt);
   }
 
   // Ground detection.
