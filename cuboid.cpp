@@ -242,7 +242,9 @@ void Cuboid::CalculateForce() {
 
       if (j == 0) {
         float vol = glm::dot(glm::cross(r1 - r0, r2 - r0), r3 - r0) / 6.f;
-        if (vol < kEpsilon) std::cerr << "vol: " << vol << std::endl;
+        if (vol < kEpsilon)
+          std::cerr << "vol: " << vol << " should not be less than zero!"
+                    << std::endl;
         assert(vol > kEpsilon);
       }
 
