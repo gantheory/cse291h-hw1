@@ -9,6 +9,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <algorithm>
+#include <glm/gtx/string_cast.hpp>
 #include <iostream>
 #include <random>
 
@@ -19,7 +20,40 @@
 #define kVelocityDecay 0.999  // 0.9995;
 #define E 680.0f
 #define nu 0.487f  // [0.0, 0.5]
-#define kdt 1e-3
+#define kdt 0.001f
+
+const std::vector<std::vector<glm::vec3>> kCubeToTetrahedron = {
+    {
+        glm::vec3(1, 1, 1),
+        glm::vec3(1, 0, 0),
+        glm::vec3(1, 0, 1),
+        glm::vec3(0, 0, 1),
+    },
+    {
+        glm::vec3(0, 0, 1),
+        glm::vec3(1, 1, 1),
+        glm::vec3(1, 0, 0),
+        glm::vec3(0, 1, 0),
+    },
+    {
+        glm::vec3(0, 0, 1),
+        glm::vec3(0, 1, 1),
+        glm::vec3(1, 1, 1),
+        glm::vec3(0, 1, 0),
+    },
+    {
+        glm::vec3(1, 0, 0),
+        glm::vec3(0, 1, 0),
+        glm::vec3(1, 1, 1),
+        glm::vec3(1, 1, 0),
+    },
+    {
+        glm::vec3(0, 0, 0),
+        glm::vec3(0, 1, 0),
+        glm::vec3(0, 0, 1),
+        glm::vec3(1, 0, 0),
+    },
+};
 
 // Constructor {{{
 Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
@@ -31,8 +65,6 @@ Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
   volume = (cuboidMax.x - cuboidMin.x) * (cuboidMax.y - cuboidMin.y) *
            (cuboidMax.z - cuboidMin.z);
   totalMass = volume * kDensity;
-
-  // lastFrame = 0.0;
 
   lambda = E * nu / (1 + nu) / (1 - 2 * nu);
   mu = E / 2 / (1 + nu);
@@ -51,9 +83,6 @@ Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
 
   // glm::mat3 rotate(glm::vec3(0.8660254, -0.5, 0.0),
   //                  glm::vec3(0.5, 0.8660254, 0.0), glm::vec3(0.0, 0.0, 1.0));
-  // glm::mat3 rotate(glm::vec3(0.7071068, 0.5, -0.5),
-  //                  glm::vec3(0.0, 0.7071068, 0.7071068),
-  //                  glm::vec3(0.7071068, -0.5, 0.5));
 
   int index = 0;
   for (size_t i = 0; i < indexOfParticles.size(); ++i)
@@ -68,38 +97,6 @@ Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
         ++index;
       }
 
-  const std::vector<std::vector<glm::vec3>> kCubeToTetrahedron = {
-      {
-          glm::vec3(1, 1, 1),
-          glm::vec3(1, 0, 0),
-          glm::vec3(1, 0, 1),
-          glm::vec3(0, 0, 1),
-      },
-      {
-          glm::vec3(0, 0, 1),
-          glm::vec3(1, 1, 1),
-          glm::vec3(1, 0, 0),
-          glm::vec3(0, 1, 0),
-      },
-      {
-          glm::vec3(0, 0, 1),
-          glm::vec3(0, 1, 1),
-          glm::vec3(1, 1, 1),
-          glm::vec3(0, 1, 0),
-      },
-      {
-          glm::vec3(1, 0, 0),
-          glm::vec3(0, 1, 0),
-          glm::vec3(1, 1, 1),
-          glm::vec3(1, 1, 0),
-      },
-      {
-          glm::vec3(0, 0, 0),
-          glm::vec3(0, 1, 0),
-          glm::vec3(0, 0, 1),
-          glm::vec3(1, 0, 0),
-      },
-  };
   tetrahedrons.resize(5 * (numOfParticles.x - 1) * (numOfParticles.y - 1) *
                           (numOfParticles.z - 1),
                       std::vector<int>(4));
@@ -162,20 +159,10 @@ Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
     }
   }
 
-  numOfSquares = {// Front
-                  ((int)numOfParticles.x - 1) * ((int)numOfParticles.y - 1),
-                  // Back
-                  ((int)numOfParticles.x - 1) * ((int)numOfParticles.y - 1),
-                  // Top
-                  ((int)numOfParticles.x - 1) * ((int)numOfParticles.z - 1),
-                  // Bottom
-                  ((int)numOfParticles.x - 1) * ((int)numOfParticles.z - 1),
-                  // Left
-                  ((int)numOfParticles.y - 1) * ((int)numOfParticles.z - 1),
-                  // Right
-                  ((int)numOfParticles.y - 1) * ((int)numOfParticles.z - 1)};
   totalNumOfSquares =
-      std::accumulate(numOfSquares.begin(), numOfSquares.end(), 0);
+      2 * ((((int)numOfParticles.x - 1) * ((int)numOfParticles.y - 1)) +
+           (((int)numOfParticles.x - 1) * ((int)numOfParticles.z - 1)) +
+           (((int)numOfParticles.y - 1) * ((int)numOfParticles.z - 1)));
 
   // Generate a vertex array (VAO) and two vertex buffer objects (VBO).
   glGenVertexArrays(1, &VAO);
@@ -231,9 +218,7 @@ std::pair<glm::mat3, glm::mat3> Cuboid::ComputeStrain(glm::vec3& r0,
   glm::vec3 e3 = r3 - r0;
   glm::mat3 T(e1, e2, e3);
   glm::mat3 F = T * inverseR;
-  glm::mat3 I(1.f);
-  glm::mat3 half(glm::vec3(0.5f), glm::vec3(0.5f), glm::vec3(0.5f));
-  glm::mat3 epsilon = matrixCompMult(half, (transpose(F) * F - I));
+  glm::mat3 epsilon = 0.5f * (transpose(F) * F - glm::mat3(1.f));
   return {F, epsilon};
 }
 // }}}
@@ -277,30 +262,13 @@ void Cuboid::CalculateForce() {
         assert(vol > kEpsilon);
       }
 
-      std::pair<glm::mat3, glm::mat3> foo =
-          ComputeStrain(r0, r1, r2, r3, inverseRs[i][j]);
-      glm::mat3& F = foo.first;
-      glm::mat3& epsilon = foo.second;
+      auto [F, epsilon] = ComputeStrain(r0, r1, r2, r3, inverseRs[i][j]);
 
       glm::mat3 sigma = ComputeStress(epsilon);
 
-      // std::cerr << "force before: " << force[i0].x << ' ' << force[i0].y << '
-      // '
-      //           << force[i0].z << ", ";
-      glm::vec3 now_force = F * sigma * n_stars[i][j];
-      // now_force *= glm::vec3(1e0);
-      if (positions[i0].y < kEpsilon) {
-        // std::cerr << "close to ground force: " << now_force.y
-        //           << ", gravity: " << force[i0].y << std::endl;
-        // now_force *= glm::vec3(1e4);
-        // now_force.y *= 5e4;
-      }
-      force[i0] += now_force;
-      // std::cerr << " after: " << force[i0].x << ' ' << force[i0].y << ' '
-      //           << force[i0].z << std::endl;
-      if (isnan(now_force.x) || isnan(now_force.y) || isnan(now_force.z)) {
-        std::cerr << "nan force: " << now_force.x << ' ' << now_force.y << ' '
-                  << now_force.z << std::endl;
+      force[i0] += F * sigma * n_stars[i][j];
+      if (isnan(force[i0].x) || isnan(force[i0].y) || isnan(force[i0].z)) {
+        std::cerr << to_string(force[i0]) << " should not be nan!" << std::endl;
         exit(0);
       }
     }
@@ -311,20 +279,19 @@ void Cuboid::CalculateForce() {
 // ApplyForce {{{
 void Cuboid::ApplyForce() {
   for (size_t i = 0; i < positions.size(); ++i) {
-    glm::vec3 acceleration = force[i] / glm::vec3(mass[i]);
-    velocities[i] += acceleration * glm::vec3(kdt);
-    positions[i] += velocities[i] * glm::vec3(kdt);
+    glm::vec3 acceleration = force[i] / mass[i];
+    velocities[i] += acceleration * kdt;
+    positions[i] += velocities[i] * kdt;
   }
 
   // Ground detection.
-  for (size_t i = 0; i < positions.size(); ++i) {
-    if (positions[i].y < kEpsilon) positions[i].y = 0, velocities[i].y *= -1;
-  }
+  for (size_t i = 0; i < positions.size(); ++i)
+    if (positions[i].y < kEpsilon) {
+      positions[i].y = 0, velocities[i].y *= -1;
+    }
 
   // Velocity decay.
-  for (size_t i = 0; i < positions.size(); ++i) {
-    velocities[i] *= kVelocityDecay;
-  }
+  for (size_t i = 0; i < positions.size(); ++i) velocities[i] *= kVelocityDecay;
 }
 // }}}
 

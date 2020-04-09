@@ -1,4 +1,4 @@
-CXXFLAGS := -std=c++11 -Wall -Wno-deprecated-declarations -Wno-unused-command-line-argument
+CXXFLAGS := -std=c++1z -Wall -Wno-deprecated-declarations -Wno-unused-command-line-argument
 LDFLAGS := /usr/local/lib
 LDLIBS := -lglfw -framework Cocoa -framework OpenGL -framework IOKit
 INCLUDE := /usr/local/include
