@@ -6,6 +6,7 @@
 #include <GL/glew.h>
 #endif
 #include <GLFW/glfw3.h>
+
 #include <math.h>
 #include <stdlib.h>
 #include <algorithm>
@@ -13,49 +14,6 @@
 #include <iostream>
 #include <random>
 
-#define kNBlocks 2      // Should be at least 1.
-#define kDensity 5.000  // kg / m^3
-#define kG 10.0f        // N / kg
-#define kEpsilon 1e-6
-#define kVelocityDecay 0.999  // 0.9995;
-#define E 680.0f
-#define nu 0.487f  // [0.0, 0.5]
-#define kdt 0.001f
-
-const std::vector<std::vector<glm::vec3>> kCubeToTetrahedron = {
-    {
-        glm::vec3(1, 1, 1),
-        glm::vec3(1, 0, 0),
-        glm::vec3(1, 0, 1),
-        glm::vec3(0, 0, 1),
-    },
-    {
-        glm::vec3(0, 0, 1),
-        glm::vec3(1, 1, 1),
-        glm::vec3(1, 0, 0),
-        glm::vec3(0, 1, 0),
-    },
-    {
-        glm::vec3(0, 0, 1),
-        glm::vec3(0, 1, 1),
-        glm::vec3(1, 1, 1),
-        glm::vec3(0, 1, 0),
-    },
-    {
-        glm::vec3(1, 0, 0),
-        glm::vec3(0, 1, 0),
-        glm::vec3(1, 1, 1),
-        glm::vec3(1, 1, 0),
-    },
-    {
-        glm::vec3(0, 0, 0),
-        glm::vec3(0, 1, 0),
-        glm::vec3(0, 0, 1),
-        glm::vec3(1, 0, 0),
-    },
-};
-
-// Constructor {{{
 Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
   model = glm::mat4(1.0f);
 
@@ -66,9 +24,9 @@ Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
            (cuboidMax.z - cuboidMin.z);
   totalMass = volume * kDensity;
 
-  lambda = E * nu / (1 + nu) / (1 - 2 * nu);
-  mu = E / 2 / (1 + nu);
-  std::cerr << "lambda: " << lambda << ", mu: " << mu << std::endl;
+  lambda = kE * kNu / (1 + kNu) / (1 - 2 * kNu);
+  mu = kE / 2 / (1 + kNu);
+  std::cout << "lambda: " << lambda << ", mu: " << mu << std::endl;
 
   // Set positions.
   glm::vec3 one(1.f);
@@ -81,8 +39,8 @@ Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
 
   positions.resize(numOfParticles.x * numOfParticles.y * numOfParticles.z);
 
-  // glm::mat3 rotate(glm::vec3(0.8660254, -0.5, 0.0),
-  //                  glm::vec3(0.5, 0.8660254, 0.0), glm::vec3(0.0, 0.0, 1.0));
+  glm::mat3 kRotation = {{1.f, 0.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, 0.f, 1.f}};
+  glm::vec3 kTranslation = {0.f, 0.f, 0.f};
 
   int index = 0;
   for (size_t i = 0; i < indexOfParticles.size(); ++i)
@@ -92,8 +50,8 @@ Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
         positions[index] = cuboidMin + glm::vec3(i, j, k) *
                                            (cuboidMax - cuboidMin) /
                                            (numOfParticles - one);
-        // positions[index] = rotate * positions[index];
-        // positions[index].y += 0.5f;
+        positions[index] = kRotation * positions[index];
+        positions[index] += kTranslation;
         ++index;
       }
 
@@ -169,11 +127,9 @@ Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
   glGenBuffers(1, &VBO_positions);
   glGenBuffers(1, &VBO_normals);
 
-  update();
+  Update();
 }
-// }}}
 
-// Destructor {{{
 Cuboid::~Cuboid() {
   // Delete the VBOs and the VAO.
   glDeleteBuffers(1, &VBO_positions);
@@ -181,10 +137,8 @@ Cuboid::~Cuboid() {
   glDeleteBuffers(1, &EBO);
   glDeleteVertexArrays(1, &VAO);
 }
-// }}}
 
-// draw {{{
-void Cuboid::draw(const glm::mat4& viewProjMtx, GLuint shader) {
+void Cuboid::Draw(const glm::mat4& viewProjMtx, GLuint shader) {
   // actiavte the shader program
   glUseProgram(shader);
 
@@ -205,9 +159,41 @@ void Cuboid::draw(const glm::mat4& viewProjMtx, GLuint shader) {
   glBindVertexArray(0);
   glUseProgram(0);
 }
-// }}}
 
-// ComputeStrain {{{
+void Cuboid::Update() {
+  CalculateForce();
+
+  ApplyForce();
+
+  SetSurface();
+
+  // Bind to the VAO.
+  glBindVertexArray(VAO);
+
+  // Bind to the first VBO - We will use it to store the vertices
+  glBindBuffer(GL_ARRAY_BUFFER, VBO_positions);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * surfacePositions.size(),
+               surfacePositions.data(), GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
+
+  // Bind to the second VBO - We will use it to store the normals
+  glBindBuffer(GL_ARRAY_BUFFER, VBO_normals);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * surfaceNormals.size(),
+               surfaceNormals.data(), GL_STATIC_DRAW);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
+
+  // Generate EBO, bind the EBO to the bound VAO and send the data
+  glGenBuffers(1, &EBO);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * indices.size(),
+               indices.data(), GL_STATIC_DRAW);
+
+  // Unbind the VBOs.
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+}
 std::pair<glm::mat3, glm::mat3> Cuboid::ComputeStrain(glm::vec3& r0,
                                                       glm::vec3& r1,
                                                       glm::vec3& r2,
@@ -221,18 +207,14 @@ std::pair<glm::mat3, glm::mat3> Cuboid::ComputeStrain(glm::vec3& r0,
   glm::mat3 epsilon = 0.5f * (transpose(F) * F - glm::mat3(1.f));
   return {F, epsilon};
 }
-// }}}
 
-// ComputeStress {{{
 glm::mat3 Cuboid::ComputeStress(glm::mat3& epsilon) {
   glm::mat3 mu_mat(glm::vec3(2.f * mu), glm::vec3(2.f * mu),
                    glm::vec3(2.f * mu));
   float trace = epsilon[0][0] + epsilon[1][1] + epsilon[2][2];
   return matrixCompMult(mu_mat, epsilon) + glm::mat3(trace * lambda);
 }
-// }}}
 
-// CalculateForce {{{
 void Cuboid::CalculateForce() {
   fill(force.begin(), force.end(), glm::vec3(0.f));
 
@@ -240,7 +222,6 @@ void Cuboid::CalculateForce() {
   for (size_t i = 0; i < positions.size(); ++i) {
     force[i].y -= mass[i] * kG;
   }
-  // return;
 
   // Linear elasicity.
   for (size_t i = 0; i < tetrahedrons.size(); ++i) {
@@ -274,9 +255,7 @@ void Cuboid::CalculateForce() {
     }
   }
 }
-// }}}
 
-// ApplyForce {{{
 void Cuboid::ApplyForce() {
   for (size_t i = 0; i < positions.size(); ++i) {
     glm::vec3 acceleration = force[i] / mass[i];
@@ -293,9 +272,7 @@ void Cuboid::ApplyForce() {
   // Velocity decay.
   for (size_t i = 0; i < positions.size(); ++i) velocities[i] *= kVelocityDecay;
 }
-// }}}
 
-// SetSurface {{{
 void Cuboid::SetSurface() {
   if (surfacePositions.empty()) surfacePositions.resize(6 * totalNumOfSquares);
   if (surfaceNormals.empty()) surfaceNormals.resize(6 * totalNumOfSquares);
@@ -496,41 +473,3 @@ void Cuboid::SetSurface() {
       index += 6;
     }
 }
-// }}}
-
-// update {{{
-void Cuboid::update() {
-  CalculateForce();
-
-  ApplyForce();
-
-  SetSurface();
-
-  // Bind to the VAO.
-  glBindVertexArray(VAO);
-
-  // Bind to the first VBO - We will use it to store the vertices
-  glBindBuffer(GL_ARRAY_BUFFER, VBO_positions);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * surfacePositions.size(),
-               surfacePositions.data(), GL_DYNAMIC_DRAW);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
-
-  // Bind to the second VBO - We will use it to store the normals
-  glBindBuffer(GL_ARRAY_BUFFER, VBO_normals);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * surfaceNormals.size(),
-               surfaceNormals.data(), GL_DYNAMIC_DRAW);
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
-
-  // Generate EBO, bind the EBO to the bound VAO and send the data
-  glGenBuffers(1, &EBO);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * indices.size(),
-               indices.data(), GL_DYNAMIC_DRAW);
-
-  // Unbind the VBOs.
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-}
-// }}}

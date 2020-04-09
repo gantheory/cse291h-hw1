@@ -128,7 +128,7 @@ void Window::idleCallback() {
   // Perform any updates as necessary.
   Cam->Update();
 
-  cuboid->update();
+  cuboid->Update();
 }
 
 void Window::displayCallback(GLFWwindow* window) {
@@ -136,7 +136,7 @@ void Window::displayCallback(GLFWwindow* window) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   // Render the object.
-  cuboid->draw(Cam->GetViewProjectMtx(), Window::shaderProgram);
+  cuboid->Draw(Cam->GetViewProjectMtx(), Window::shaderProgram);
 
   // Gets events, including input such as keyboard and mouse or window resizing.
   glfwPollEvents();
