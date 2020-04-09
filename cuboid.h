@@ -87,8 +87,7 @@ class Cuboid {
   void SetSurface();
 
  public:
-  Cuboid(glm::vec3 cuboidMin = glm::vec3(-1, -1, -1),
-         glm::vec3 cuboidMax = glm::vec3(1, 1, 1));
+  Cuboid(glm::vec3 cuboidSide);
   ~Cuboid();
 
   void Draw(const glm::mat4& viewProjMtx, GLuint shader);

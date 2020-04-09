@@ -14,11 +14,14 @@
 #include <iostream>
 #include <random>
 
-Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
+Cuboid::Cuboid(glm::vec3 cuboidSide) {
   model = glm::mat4(1.0f);
 
   // Set color.
   color = glm::vec3(1.f, 1.f, 1.f);
+
+  glm::vec3 cuboidMin(0.f);
+  glm::vec3 cuboidMax = cuboidSide;
 
   volume = (cuboidMax.x - cuboidMin.x) * (cuboidMax.y - cuboidMin.y) *
            (cuboidMax.z - cuboidMin.z);
@@ -40,7 +43,7 @@ Cuboid::Cuboid(glm::vec3 cuboidMin, glm::vec3 cuboidMax) {
   positions.resize(numOfParticles.x * numOfParticles.y * numOfParticles.z);
 
   glm::mat3 kRotation = {{1.f, 0.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, 0.f, 1.f}};
-  glm::vec3 kTranslation = {0.f, 0.f, 0.f};
+  glm::vec3 kTranslation = {-1.f, 1.f, -1.f};
 
   int index = 0;
   for (size_t i = 0; i < indexOfParticles.size(); ++i)
