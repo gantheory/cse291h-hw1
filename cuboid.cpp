@@ -14,6 +14,8 @@
 #include <iostream>
 #include <random>
 
+#define PI 3.1415926f
+
 Cuboid::Cuboid(glm::vec3 cuboidSide) {
   model = glm::mat4(1.0f);
 
@@ -42,8 +44,23 @@ Cuboid::Cuboid(glm::vec3 cuboidSide) {
 
   positions.resize(numOfParticles.x * numOfParticles.y * numOfParticles.z);
 
-  glm::mat3 kRotation = {{1.f, 0.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, 0.f, 1.f}};
-  glm::vec3 kTranslation = {-1.f, 1.f, -1.f};
+  // rotation degree on X, Y, Z
+  std::vector<float> degree = {-20.0, 0.0, 13.0};
+  std::vector<float> radius(3);
+  for (int i = 0; i < 3; ++i) radius[i] = degree[i] * PI / 180.0f;
+  std::vector<glm::mat3> rotate(3);
+  rotate[0] = {{1.f, 0.f, 0.f},
+               {0.f, cos(radius[0]), -sin(radius[0])},
+               {0, sin(radius[0]), cos(radius[0])}};
+  rotate[1] = {{cos(radius[1]), 0, sin(radius[1])},
+               {0.f, 1.f, 0.f},
+               {-sin(radius[1]), 0.f, cos(radius[1])}};
+  rotate[2] = {{cos(radius[2]), -sin(radius[2]), 0.f},
+               {sin(radius[2]), cos(radius[2]), 0.f},
+               {0.f, 0.f, 1.f}};
+  for (int i = 0; i < 3; ++i) rotate[i] = transpose(rotate[i]);
+  const glm::mat3 kRotate = rotate[2] * rotate[1] * rotate[0];
+  const glm::vec3 kTranslation = {-0.5f, 2.f, -0.5f};
 
   int index = 0;
   for (size_t i = 0; i < indexOfParticles.size(); ++i)
@@ -53,7 +70,7 @@ Cuboid::Cuboid(glm::vec3 cuboidSide) {
         positions[index] = cuboidMin + glm::vec3(i, j, k) *
                                            (cuboidMax - cuboidMin) /
                                            (numOfParticles - one);
-        positions[index] = kRotation * positions[index];
+        positions[index] = kRotate * positions[index];
         positions[index] += kTranslation;
         ++index;
       }
@@ -240,12 +257,12 @@ void Cuboid::CalculateForce() {
       glm::vec3& r2 = positions[i2];
       glm::vec3& r3 = positions[i3];
 
-      if (j == 0) {
-        float vol = glm::dot(glm::cross(r1 - r0, r2 - r0), r3 - r0) / 6.f;
-        if (vol < kEpsilon)
-          std::cerr << "vol: " << vol << " should not be less than zero!"
-                    << std::endl;
-        assert(vol > kEpsilon);
+      float vol = glm::dot(glm::cross(r1 - r0, r2 - r0), r3 - r0) / 6.f;
+      if (vol < kEpsilon) {
+        std::cerr << "vol: " << vol << " should not be less than zero!"
+                  << std::endl;
+        assert(false);
+        break;
       }
 
       auto [F, epsilon] = ComputeStrain(r0, r1, r2, r3, inverseRs[i][j]);
@@ -270,7 +287,7 @@ void Cuboid::ApplyForce() {
 
   // Ground detection.
   for (size_t i = 0; i < positions.size(); ++i)
-    if (positions[i].y < kEpsilon) {
+    if (positions[i].y < kGround + kEpsilon) {
       positions[i].y = 0, velocities[i].y *= -1;
     }
 

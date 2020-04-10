@@ -9,10 +9,11 @@ class Cuboid {
   const float kDensity = 5.000;
   const float kG = 10.0;
   const float kEpsilon = 1e-6;
-  const float kVelocityDecay = 0.999;
-  const float kE = 680.0;
+  const float kVelocityDecay = 0.9985;
+  const float kE = 3000.0;
   const float kNu = 0.487;
   const float kdt = 0.001;
+  const float kGround = 0.0f;
 
   const std::vector<std::vector<int>> kSurfaceOfTetrahedron = {
       {2, 0, 1, 3}, {1, 0, 3, 2}, {3, 0, 2, 1}, {0, 1, 2, 3}};
