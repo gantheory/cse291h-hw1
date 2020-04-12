@@ -7,6 +7,7 @@ Camera::Camera() { Reset(); }
 void Camera::Update() {
   // Compute camera world matrix
   glm::mat4 world(1);
+  world[3][1] = 2.0;
   world[3][2] = Distance;
   world = glm::eulerAngleY(glm::radians(-Azimuth)) *
           glm::eulerAngleX(glm::radians(-Incline)) * world;
